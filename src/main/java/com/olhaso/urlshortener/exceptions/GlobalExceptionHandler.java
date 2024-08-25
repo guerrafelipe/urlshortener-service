@@ -40,6 +40,7 @@ public class GlobalExceptionHandler {
     }
 
     // UrlNotEnabledExeption
+    @ExceptionHandler(UrlNotEnabledException.class)
     public ResponseEntity<ErrorObject> handleUrlNotEnabledException(UrlNotEnabledException ex,
                                                                     WebRequest request) {
         ErrorObject errorObject = new ErrorObject();
@@ -50,6 +51,7 @@ public class GlobalExceptionHandler {
     }
 
     // UrlCodeColisonException
+    @ExceptionHandler(UrlCodeColisonException.class)
     public ResponseEntity<ErrorObject> handleUrlColisonException(UrlCodeColisonException ex,
                                                                  WebRequest request) {
         ErrorObject errorObject = new ErrorObject();
