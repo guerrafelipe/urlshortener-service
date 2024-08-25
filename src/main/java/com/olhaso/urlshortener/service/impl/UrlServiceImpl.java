@@ -4,18 +4,16 @@ import com.olhaso.urlshortener.dto.UrlRequestCreateDTO;
 import com.olhaso.urlshortener.dto.UrlRequestUpdateDTO;
 import com.olhaso.urlshortener.dto.UrlResponseDTO;
 import com.olhaso.urlshortener.entities.UrlEntity;
+import com.olhaso.urlshortener.exceptions.UrlNotEnabledException;
+import com.olhaso.urlshortener.exceptions.UrlNotFoundException;
 import com.olhaso.urlshortener.repository.UrlRepository;
 import com.olhaso.urlshortener.service.UrlService;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import java.net.URI;
 import java.time.LocalDateTime;
-import java.util.Optional;
 import com.olhaso.urlshortener.utils.UrlUtils;
 
 
@@ -28,16 +26,16 @@ public class UrlServiceImpl implements UrlService {
     private final UrlUtils urlUtils;
 
     @Override
-    public ResponseEntity<UrlResponseDTO> create(UrlRequestCreateDTO request,
-                                                 HttpServletRequest servletRequest){
-        log.debug("Received URL shortening request for: {}", request.getFullUrl());
+    public UrlResponseDTO create(UrlRequestCreateDTO request, String requestUrl){
+        String fullUrl = request.getFullUrl();
+        log.debug("Received URL shortening request for: {}", fullUrl);
 
-        // Format URL and generate its short code
-        String fullUrl = urlUtils.formatUrlWithProtocol(request.getFullUrl());
+        fullUrl = urlUtils.formatUrlWithProtocol(fullUrl);
+        log.debug("Full URL with protocol: {}", fullUrl);
+
         String urlCode = urlUtils.generateUniqueUrlCode(fullUrl);
-        String redirectUrl = urlUtils.generateRedirectionUrl(servletRequest
-                .getRequestURL()
-                .toString(), urlCode);
+        String shortUrl = urlUtils.generateRedirectionUrl(requestUrl, urlCode);
+        log.debug("Short URL: {}", shortUrl);
 
         // Saves record into database -> Mapper ou builder
         UrlEntity urlEntity = UrlEntity.builder()
@@ -50,51 +48,40 @@ public class UrlServiceImpl implements UrlService {
         urlRepository.save(urlEntity);
 
         // Mounts response
-        UrlResponseDTO response = UrlResponseDTO.builder()
-                .url(redirectUrl)
-                .isEnabled(Boolean.TRUE)
-                .build();
-        log.debug("Generated short URL: {}", redirectUrl);
-        return ResponseEntity.ok(response);
+        UrlResponseDTO responseDTO = new UrlResponseDTO();
+        responseDTO.setUrl(shortUrl);
+        responseDTO.setIsEnabled(Boolean.TRUE);
+        log.debug("Saved successfully short URL: {}", shortUrl);
+
+        return responseDTO;
     }
 
     @Override
-    public ResponseEntity<Object> redirect(String id,
-                                           HttpServletRequest servletRequest) {
-        log.debug("Redirecting for ID: {}", id);
-
-        // Find a URL with equivalent code
-        Optional<UrlEntity> optionalUrlEntity = urlRepository.findById(id);
-        if(optionalUrlEntity.isEmpty()){
-            log.warn("No URL found for ID: {}", id);
-            return ResponseEntity.notFound().build();
-        }
-        UrlEntity urlEntity = optionalUrlEntity.get();
-        if(Boolean.FALSE.equals(urlEntity.getIsEnabled())){
-            return ResponseEntity.notFound().build();
-        }
-
-        // Set location header
-        HttpHeaders headers = new HttpHeaders();
-        headers.setLocation(URI.create(urlEntity.getFullUrl()));
-        return ResponseEntity.status(HttpStatus.FOUND).headers(headers).build();
-    }
-
-    @Override
-    public ResponseEntity<Object> update(String id, UrlRequestUpdateDTO body) {
+    public Object update(String id, UrlRequestUpdateDTO body) {
         log.debug("Updating for ID: {}", id);
-
-        Optional<UrlEntity> optionalUrlEntity = urlRepository.findById(id);
-        if(optionalUrlEntity.isEmpty()){
-            return ResponseEntity.notFound().build();
-        }
-
-        UrlEntity urlEntity = optionalUrlEntity.get();
+        UrlEntity urlEntity = urlRepository
+                .findById(id)
+                .orElseThrow(() ->
+                        new UrlNotFoundException("Short URL not found for ID:" + id));
         urlEntity.setFullUrl(body.getFullUrl());
         urlEntity.setIsEnabled(body.getIsEnabled());
         urlRepository.save(urlEntity);
-
         log.debug("Updated short URL with id {}", id);
-        return ResponseEntity.noContent().build();
+        return true;
+    }
+
+    @Override
+    public HttpHeaders redirect(String id) {
+        log.debug("Redirecting for ID: {}", id);
+        UrlEntity urlEntity = urlRepository
+                .findById(id)
+                .orElseThrow(()-> new UrlNotFoundException("No URL found for ID: " + id));
+        if(Boolean.FALSE.equals(urlEntity.getIsEnabled())){
+            throw new UrlNotEnabledException("URL is disabled - ID: " + id);
+        }
+        // Set location header
+        HttpHeaders headers = new HttpHeaders();
+        headers.setLocation(URI.create(urlEntity.getFullUrl()));
+        return headers;
     }
 }

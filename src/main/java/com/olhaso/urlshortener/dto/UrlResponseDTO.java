@@ -4,8 +4,7 @@ import lombok.*;
 
 @Getter
 @Setter
-@Builder
-@AllArgsConstructor
+@NoArgsConstructor
 public class UrlResponseDTO {
     public String url;
     public Boolean isEnabled;

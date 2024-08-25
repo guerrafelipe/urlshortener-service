@@ -6,7 +6,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 
-public class CryptographyUtils {
+class CryptographyUtils {
 
     // Método para gerar um salt aleatório
     public static String generateRandomSalt(int length) {
