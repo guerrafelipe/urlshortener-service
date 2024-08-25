@@ -13,12 +13,9 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
-
 import java.time.LocalDateTime;
 import java.util.Optional;
-
 import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.any;
 
 @SpringBootTest
 class UrlServiceImplTest {
